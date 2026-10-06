@@ -29,7 +29,8 @@ def total_route_meters(points):
     points 为检查点序列 [(x, y), ...]，至少两个点。"""
     distance_in_meters = 0
     for i in range(len(points) - 1):
-        distance_in_meters += segment_length_cm(points[i], points[i + 1])
+        # 修复 #1：segment_length_cm 返回厘米，累加时换算成米
+        distance_in_meters += segment_length_cm(points[i], points[i + 1]) / 100
     return distance_in_meters
 
 
@@ -59,6 +60,9 @@ def calibrate(samples):
     """以第一个正样本为基线计算累计漂移：sum(s - baseline)。
     样本为空或没有正样本时，漂移为 0。"""
     baseline = first_positive(samples)
+    if baseline is None:
+        # 修复 #2：无正样本时按契约返回 0，而不是拿 None 参与运算
+        return 0
     drift = 0
     for s in samples:
         drift += s - baseline
@@ -75,15 +79,19 @@ def summarize_events(events, max_id):
     used = 0
     steps = 0
     for e in events:
-        if e["id"] < max_id:
+        # 修复 #3：契约为"id 不超过 max_id"，边界应含 max_id 本身
+        if e["id"] <= max_id:
             used += 1
             steps += e["move"] + calibrate(e["samples"])
     return {"events": used, "steps": steps}
 
 
-def log(message, history=[]):
+def log(message, history=None):
     """向历史追加一条日志并返回整个历史列表。
     不显式传入 history 时，每次调用都从空历史开始。"""
+    # 修复 #4：可变默认参数会在多次调用间共享同一个列表
+    if history is None:
+        history = []
     history.append(message)
     return history
 
@@ -109,6 +117,9 @@ def run_legacy_sim(rounds, stamina_start=100):
         if round_ >= 3:
             stamina -= 5
         trace.append((round_, stamina))
-        if stamina > 20:
+        # 修复 #5：轮号必须自增，否则循环永不前进
+        round_ += 1
+        # 修复 #6：契约是"体力 <= 20 时立即终止"，原条件方向写反
+        if stamina <= 20:
             break
     return {"rounds": len(trace), "stamina": stamina, "trace": trace}
