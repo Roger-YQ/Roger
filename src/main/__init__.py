@@ -382,134 +382,134 @@ def decide(sensor, state, hp, heat):
     raise ValueError("无法到达：未知状态 {!r}".format(state))
 
 
-# # ---------------------------------------------------------------------------
-# # Q6 巡逻任务（题面 Q6·巡逻契约与验收阈值）
-# # ---------------------------------------------------------------------------
-# def run_patrol(grid, max_steps=500):
-#     """sense → decide → act 主循环；
-#     循环结构、终止条件、脱困自由度与统计返回契约见题面 Q6 规范。
+# ---------------------------------------------------------------------------
+# Q6 巡逻任务（题面 Q6·巡逻契约与验收阈值）
+# ---------------------------------------------------------------------------
+def run_patrol(grid, max_steps=500):
+    """sense → decide → act 主循环；
+    循环结构、终止条件、脱困自由度与统计返回契约见题面 Q6 规范。
 
-#     脱困策略（自定义）：贪心失速（四邻域无严格减距方向）时切入沿墙走——
-#     默认左手贴墙；绕圈超过 w+h 步换右手；绕圈超过 2*(w+h) 步或重新
-#     出现减距候选且不比入角时更远，则切回贪心。
-#     """
-#     left_of = {Facing.UP: Facing.LEFT, Facing.LEFT: Facing.DOWN,
-#                Facing.DOWN: Facing.RIGHT, Facing.RIGHT: Facing.UP}
-#     right_of = {v: k for k, v in left_of.items()}
-#     rights = {Facing.UP: 0, Facing.RIGHT: 1, Facing.DOWN: 2, Facing.LEFT: 3}
-#     enemy = grid.enemy_pos
+    脱困策略（自定义）：贪心失速（四邻域无严格减距方向）时切入沿墙走——
+    默认左手贴墙；绕圈超过 w+h 步换右手；绕圈超过 2*(w+h) 步或重新
+    出现减距候选且不比入角时更远，则切回贪心。
+    """
+    left_of = {Facing.UP: Facing.LEFT, Facing.LEFT: Facing.DOWN,
+               Facing.DOWN: Facing.RIGHT, Facing.RIGHT: Facing.UP}
+    right_of = {v: k for k, v in left_of.items()}
+    rights = {Facing.UP: 0, Facing.RIGHT: 1, Facing.DOWN: 2, Facing.LEFT: 3}
+    enemy = grid.enemy_pos
 
-#     def manhattan(a, b):
-#         return abs(a[0] - b[0]) + abs(a[1] - b[1])
+    def manhattan(a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
-#     def has_candidate():
-#         pos = grid.current_pos
-#         dist = manhattan(pos, enemy)
-#         for f in (Facing.UP, Facing.DOWN, Facing.LEFT, Facing.RIGHT):
-#             d = f.delta
-#             nxt = (pos[0] + d[0], pos[1] + d[1])
-#             if not grid.is_blocked(*nxt) and manhattan(nxt, enemy) < dist:
-#                 return True
-#         return False
+    def has_candidate():
+        pos = grid.current_pos
+        dist = manhattan(pos, enemy)
+        for f in (Facing.UP, Facing.DOWN, Facing.LEFT, Facing.RIGHT):
+            d = f.delta
+            nxt = (pos[0] + d[0], pos[1] + d[1])
+            if not grid.is_blocked(*nxt) and manhattan(nxt, enemy) < dist:
+                return True
+        return False
 
-#     steps = 0
-#     visited = {grid.current_pos}
-#     wall = False
-#     hand = "L"
-#     wall_steps = 0
-#     entry = 0
-#     limit = grid.width + grid.height
+    steps = 0
+    visited = {grid.current_pos}
+    wall = False
+    hand = "L"
+    wall_steps = 0
+    entry = 0
+    limit = grid.width + grid.height
 
-#     while (steps < max_steps and grid.fuel > 0
-#            and not grid.found_enemy):
-#         pos = grid.current_pos
-#         if not has_candidate() and not wall:
-#             wall = True
-#             hand = "L"
-#             wall_steps = 0
-#             entry = manhattan(pos, enemy)
-#         if wall:
-#             side = left_of[grid.facing] if hand == "L" else right_of[grid.facing]
-#             opposite = right_of[grid.facing] if hand == "L" else left_of[grid.facing]
+    while (steps < max_steps and grid.fuel > 0
+           and not grid.found_enemy):
+        pos = grid.current_pos
+        if not has_candidate() and not wall:
+            wall = True
+            hand = "L"
+            wall_steps = 0
+            entry = manhattan(pos, enemy)
+        if wall:
+            side = left_of[grid.facing] if hand == "L" else right_of[grid.facing]
+            opposite = right_of[grid.facing] if hand == "L" else left_of[grid.facing]
 
-#             def cell(f, pos=pos):
-#                 d = f.delta
-#                 return (pos[0] + d[0], pos[1] + d[1])
+            def cell(f, pos=pos):
+                d = f.delta
+                return (pos[0] + d[0], pos[1] + d[1])
 
-#             if not grid.is_blocked(*cell(side)):
-#                 grid.turn_left() if hand == "L" else grid.turn_right()
-#             elif grid.is_blocked(*cell(grid.facing)):
-#                 if not grid.is_blocked(*cell(opposite)):
-#                     grid.turn_right() if hand == "L" else grid.turn_left()
-#                 else:
-#                     grid.turn_right()
-#                     grid.turn_right()
-#         else:
-#             direction = next_step_toward(grid.current_pos, enemy,
-#                                          grid.obstacles, grid.facing)
-#             diff = (rights[direction] - rights[grid.facing]) % 4
-#             if diff == 3:
-#                 grid.turn_left()
-#             else:
-#                 for _ in range(diff):
-#                     grid.turn_right()
-#         grid.move_forward()
-#         steps += 1
-#         visited.add(grid.current_pos)
-#         if wall:
-#             wall_steps += 1
-#             if wall_steps > limit and hand == "L":
-#                 hand = "R"
-#                 wall_steps = 0
-#             elif wall_steps > 2 * limit:
-#                 wall = False
-#             elif (has_candidate()
-#                     and manhattan(grid.current_pos, enemy) < entry + 1):
-#                 wall = False
-#     return {"steps": steps,
-#             "collisions": grid.collision_count,
-#             "visited_count": len(visited),
-#             "found_enemy": grid.found_enemy,
-#             "success": grid.found_enemy}
-
-
-# def report_to_json(stats):
-#     """把 stats 序列化为确定性的 JSON 字符串，见题面 Q6 规范。"""
-#     return json.dumps(stats, sort_keys=True, separators=(",", ":"))
+            if not grid.is_blocked(*cell(side)):
+                grid.turn_left() if hand == "L" else grid.turn_right()
+            elif grid.is_blocked(*cell(grid.facing)):
+                if not grid.is_blocked(*cell(opposite)):
+                    grid.turn_right() if hand == "L" else grid.turn_left()
+                else:
+                    grid.turn_right()
+                    grid.turn_right()
+        else:
+            direction = next_step_toward(grid.current_pos, enemy,
+                                         grid.obstacles, grid.facing)
+            diff = (rights[direction] - rights[grid.facing]) % 4
+            if diff == 3:
+                grid.turn_left()
+            else:
+                for _ in range(diff):
+                    grid.turn_right()
+        grid.move_forward()
+        steps += 1
+        visited.add(grid.current_pos)
+        if wall:
+            wall_steps += 1
+            if wall_steps > limit and hand == "L":
+                hand = "R"
+                wall_steps = 0
+            elif wall_steps > 2 * limit:
+                wall = False
+            elif (has_candidate()
+                    and manhattan(grid.current_pos, enemy) < entry + 1):
+                wall = False
+    return {"steps": steps,
+            "collisions": grid.collision_count,
+            "visited_count": len(visited),
+            "found_enemy": grid.found_enemy,
+            "success": grid.found_enemy}
 
 
-# # ---------------------------------------------------------------------------
-# # Bonus：BFS 全局最短路（题面 Bonus·BFS 语义与排行榜）
-# # ---------------------------------------------------------------------------
-# def bfs_path_length(start, target, obstacles):
-#     """BFS 全局最短路步数；返回语义与边界职责见题面 Bonus 规范。
+def report_to_json(stats):
+    """把 stats 序列化为确定性的 JSON 字符串，见题面 Q6 规范。"""
+    return json.dumps(stats, sort_keys=True, separators=(",", ":"))
 
-#     start == target 返回 0；目标不可达返回 -1。
-#     obstacles 由调用方负责包含地图边界（否则不可达目标的搜索不会终止）。
-#     """
-#     start = (start[0], start[1])
-#     target = (target[0], target[1])
-#     if start == target:
-#         return 0
-#     blocked = set()
-#     try:
-#         blocked = {(ob[0], ob[1]) for ob in obstacles}
-#     except (TypeError, IndexError, ValueError):
-#         blocked = set()
-#     if start in blocked or target in blocked:
-#         return -1
-#     queue = deque([(start, 0)])
-#     seen = {start}
-#     while queue:
-#         (x, y), dist = queue.popleft()
-#         for nxt in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-#             if nxt == target:
-#                 return dist + 1
-#             if nxt in blocked or nxt in seen:
-#                 continue
-#             seen.add(nxt)
-#             queue.append((nxt, dist + 1))
-#     return -1  # 队列耗尽：目标不可达
+
+# ---------------------------------------------------------------------------
+# Bonus：BFS 全局最短路（题面 Bonus·BFS 语义与排行榜）
+# ---------------------------------------------------------------------------
+def bfs_path_length(start, target, obstacles):
+    """BFS 全局最短路步数；返回语义与边界职责见题面 Bonus 规范。
+
+    start == target 返回 0；目标不可达返回 -1。
+    obstacles 由调用方负责包含地图边界（否则不可达目标的搜索不会终止）。
+    """
+    start = (start[0], start[1])
+    target = (target[0], target[1])
+    if start == target:
+        return 0
+    blocked = set()
+    try:
+        blocked = {(ob[0], ob[1]) for ob in obstacles}
+    except (TypeError, IndexError, ValueError):
+        blocked = set()
+    if start in blocked or target in blocked:
+        return -1
+    queue = deque([(start, 0)])
+    seen = {start}
+    while queue:
+        (x, y), dist = queue.popleft()
+        for nxt in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if nxt == target:
+                return dist + 1
+            if nxt in blocked or nxt in seen:
+                continue
+            seen.add(nxt)
+            queue.append((nxt, dist + 1))
+    return -1  # 队列耗尽：目标不可达
 
 
 # ---------------------------------------------------------------------------
